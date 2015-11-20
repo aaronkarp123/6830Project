@@ -215,7 +215,7 @@ public class TransactionTest extends SimpleDbTestBase {
             throws IOException, DbException, TransactionAbortedException {
         validateTransactions(2);
     }
-
+/*
     @Test public void testFiveThreads()
             throws IOException, DbException, TransactionAbortedException {
         validateTransactions(5);
@@ -225,7 +225,7 @@ public class TransactionTest extends SimpleDbTestBase {
     throws IOException, DbException, TransactionAbortedException {
         validateTransactions(10);
     }
-
+*/
     @Test public void testAllDirtyFails()
             throws IOException, DbException, TransactionAbortedException {
         // Allocate a file with ~10 pages of data
