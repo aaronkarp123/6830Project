@@ -49,21 +49,26 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 	
 	@Test
 	public void Test() throws Exception {    	
-		File f = new File("/home/maleen/btree");
+		File f = File.createTempFile("tmp", "txt");
 		f.deleteOnExit();
 		BTreeFile b = new BTreeFile( f, 0 , td);
 		Database.getCatalog().addTable(b);
 		//PrintTree(b);
-		for (int i=0;i<12000;i++){
+		for (int i=0;i<1000;i++){
+			if (i%10000==0) {
+				Database.getBufferPool().transactionComplete(tid);
+				tid = new TransactionId();
+			}
 			Tuple t = new Tuple(td);
 			t.setField(0, new IntField(i));
 			t.setField(1, new IntField(i));
 			//System.out.println(t);
-			b.insertTuple( tid, t);
+			ArrayList<Page> dirty =b.insertTuple( tid, t);
+			for (Page p: dirty){
+				p.markPageDirty(true, tid);
+			}
 		}
 		System.out.println("NumPages "+b.numPages());
-		//Database.getBufferPool().transactionComplete(tid);
-		Database.getBufferPool().flushAllPages(); // FIXME Nothing is actually getting written to disk here.
 		PrintTree(b);
 		BTreeChecker.checkRep(b, tid, dirtypages, false);
 		
