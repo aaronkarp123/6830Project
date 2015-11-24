@@ -980,6 +980,48 @@ public class BTreeFile implements DbFile {
 		dirtyPagesArr.addAll(dirtypages.values());
 		return dirtyPagesArr;
 	}
+	
+	public void PrintStructure(TransactionId tid, HashMap<PageId, Page> dirtypages,BTreePageId pid /*root*/,int level) throws DbException, TransactionAbortedException{
+		String s = "";
+		for (int i=0;i<level;i++) s+= "\t";
+ 		
+ 		if (pid.pgcateg() == pid.INTERNAL){
+ 			BTreeInternalPage p = (BTreeInternalPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
+ 			Iterator<BTreeEntry> it = p.iterator();
+ 			System.out.println(s + "INTERNAL" +" pgNo: "+pid.pageNumber() + " numKeys: "+p.getNumEntries() +" empty: "+p.getNumEmptySlots()  + " parent "+p.getParentId() );
+ 			BTreeEntry e = null;
+ 			while (it.hasNext()){
+ 				e = it.next();			
+ 				PrintStructure(tid, dirtypages, e.getLeftChild(), level+1);
+ 				System.out.println(s+"Key: "+e.getKey().toString());
+ 				//PrintStructure(tid, dirtypages, e.getRightChild(), level+1);
+ 			}
+ 			//System.out.println(s+"Right Child");
+ 			PrintStructure(tid, dirtypages, e.getRightChild(), level+1);
+ 		} else {
+ 			BTreeLeafPage p = (BTreeLeafPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
+ 			System.out.println(s + "LEAF" +" pgNo: "+pid.pageNumber() + " parent "+p.getParentId().pageNumber() + " left "+( p.getLeftSiblingId()==null?"null" :  p.getLeftSiblingId().pageNumber()) +" right "+( p.getRightSiblingId()==null?"null" :  p.getRightSiblingId().pageNumber()));
+ 			DumpLeafPage(p, s);
+ 		}
+	}
+	public void DumpLeafPage(BTreeLeafPage page, String prefix){
+		String s = "[";
+		Iterator<Tuple> it = page.iterator();
+		while (it.hasNext())
+			s+= it.next().getField(keyField) +",";
+		s += "]";
+		System.out.println(prefix +" "+page.getId() + " size: "+ page.getNumTuples()+" " + s);
+	}
+	public void DumpLeafPageId(int pageNo){
+		System.out.println("Page "+pageNo +" Dump");
+		try {
+			BTreeLeafPage p = (BTreeLeafPage) getPage(new TransactionId(), new HashMap<PageId,Page>(), new BTreePageId(tableid, pageNo, BTreePageId.LEAF),Permissions.READ_ONLY );
+			DumpLeafPage(p,"");
+		} catch (DbException | TransactionAbortedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 
 	/**
 	 * Get a read lock on the root pointer page. Create the root pointer page and root page
