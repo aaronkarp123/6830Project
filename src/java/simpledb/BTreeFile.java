@@ -21,11 +21,11 @@ import simpledb.Predicate.Op;
  */
 public class BTreeFile implements DbFile {
 
-	private final File f;
-	private final TupleDesc td;
-	private final int tableid ;
-	private int keyField;
-
+	protected final File f;
+	protected final TupleDesc td;
+	protected final int tableid ;
+	protected int keyField;
+	
 	/**
 	 * Constructs a B+ tree file backed by the specified file.
 	 * 
@@ -531,7 +531,7 @@ public class BTreeFile implements DbFile {
 
 		// insert the tuple into the leaf page
 		leafPage.insertTuple(t);
-
+		
 		ArrayList<Page> dirtyPagesArr = new ArrayList<Page>();
 		dirtyPagesArr.addAll(dirtypages.values());
 		return dirtyPagesArr;

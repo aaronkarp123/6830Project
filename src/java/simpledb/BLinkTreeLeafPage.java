@@ -11,13 +11,9 @@ import java.io.*;
  * @see BufferPool
  *
  */
-public class BTreeLeafPage extends BTreePage {
-	protected  byte header[];
-	protected  Tuple tuples[];
-	protected  int numSlots;
+public class BLinkTreeLeafPage extends BTreeLeafPage {
 	
-	protected int leftSibling; // leaf node or 0
-	protected int rightSibling; // leaf node or 0
+	private Field highKey;
 
 	public void checkRep(int fieldid, Field lowerBound, Field upperBound, boolean checkoccupancy, int depth) {
 		Field prev = lowerBound;
@@ -61,7 +57,7 @@ public class BTreeLeafPage extends BTreePage {
 	 * @param data - the raw data of this page
 	 * @param key - the field which the index is keyed on
 	 */
-	public BTreeLeafPage(BTreePageId id, byte[] data, int key) throws IOException {
+	public BLinkTreeLeafPage(BTreePageId id, byte[] data, int key) throws IOException {
 		super(id, key);
 		this.numSlots = getMaxTuples();
 		DataInputStream dis = new DataInputStream(new ByteArrayInputStream(data));
@@ -105,10 +101,6 @@ public class BTreeLeafPage extends BTreePage {
 
 		setBeforeImage();
 	}
-	// For subclasses
-	public BTreeLeafPage(BTreePageId id, int key) throws IOException {
-		super(id,key);
-	}
 
 	/** 
 	 * Retrieve the maximum number of tuples this page can hold.
@@ -134,14 +126,14 @@ public class BTreeLeafPage extends BTreePage {
 
 	/** Return a view of this page before it was modified
         -- used by recovery */
-	public BTreeLeafPage getBeforeImage(){
+	public BLinkTreeLeafPage getBeforeImage(){
 		try {
 			byte[] oldDataRef = null;
 			synchronized(oldDataLock)
 			{
 				oldDataRef = oldData;
 			}
-			return new BTreeLeafPage(pid,oldDataRef,keyField);
+			return new BLinkTreeLeafPage(pid,oldDataRef,keyField);
 		} catch (IOException e) {
 			e.printStackTrace();
 			//should never happen -- we parsed it OK before!
@@ -484,7 +476,7 @@ public class BTreeLeafPage extends BTreePage {
 	 * (note that this iterator shouldn't return tuples in empty slots!)
 	 */
 	public Iterator<Tuple> iterator() {
-		return new BTreeLeafPageIterator(this);
+		return new BLinkTreeLeafPageIterator(this);
 	}
 
 	/**
@@ -492,7 +484,7 @@ public class BTreeLeafPage extends BTreePage {
 	 * (note that this iterator shouldn't return tuples in empty slots!)
 	 */
 	public Iterator<Tuple> reverseIterator() {
-		return new BTreeLeafPageReverseIterator(this);
+		return new BLinkTreeLeafPageReverseIterator(this);
 	}
 
 	/**
@@ -524,12 +516,12 @@ public class BTreeLeafPage extends BTreePage {
 /**
  * Helper class that implements the Java Iterator for tuples on a BTreeLeafPage.
  */
-class BTreeLeafPageIterator implements Iterator<Tuple> {
+class BLinkTreeLeafPageIterator implements Iterator<Tuple> {
 	int curTuple = 0;
 	Tuple nextToReturn = null;
-	BTreeLeafPage p;
+	BLinkTreeLeafPage p;
 
-	public BTreeLeafPageIterator(BTreeLeafPage p) {
+	public BLinkTreeLeafPageIterator(BLinkTreeLeafPage p) {
 		this.p = p;
 	}
 
@@ -572,12 +564,12 @@ class BTreeLeafPageIterator implements Iterator<Tuple> {
 /**
  * Helper class that implements the Java Iterator for tuples on a BTreeLeafPage in reverse.
  */
-class BTreeLeafPageReverseIterator implements Iterator<Tuple> {
+class BLinkTreeLeafPageReverseIterator implements Iterator<Tuple> {
 	int curTuple;
 	Tuple nextToReturn = null;
-	BTreeLeafPage p;
+	BLinkTreeLeafPage p;
 
-	public BTreeLeafPageReverseIterator(BTreeLeafPage p) {
+	public BLinkTreeLeafPageReverseIterator(BLinkTreeLeafPage p) {
 		this.p = p;
 		this.curTuple = p.getMaxTuples() - 1;
 	}
