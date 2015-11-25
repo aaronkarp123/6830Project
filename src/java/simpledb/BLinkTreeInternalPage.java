@@ -16,6 +16,7 @@ import simpledb.Predicate.Op;
 public class BLinkTreeInternalPage extends BTreeInternalPage {
 	
 	private Field highKey;
+	private int rightSibling;
 	
 	public void checkRep(Field lowerBound, Field upperBound, boolean checkOccupancy, int depth) {
 		Field prev = lowerBound;
@@ -73,6 +74,12 @@ public class BLinkTreeInternalPage extends BTreeInternalPage {
 		} catch (java.text.ParseException e) {
 			e.printStackTrace();
 		}
+		try {
+			Field f = Type.INT_TYPE.parse(dis);
+			this.rightSibling = ((IntField) f).getValue();
+		} catch (java.text.ParseException e) {
+			e.printStackTrace();
+		}
 		// highkey
 		try {
 			Field f = td.getFieldType(keyField).parse(dis);
@@ -80,6 +87,7 @@ public class BLinkTreeInternalPage extends BTreeInternalPage {
 		} catch (java.text.ParseException e) {
 			e.printStackTrace();
 		}
+
 
 		// read the child page category
 		childCategory = (int) dis.readByte();
@@ -246,6 +254,12 @@ public class BLinkTreeInternalPage extends BTreeInternalPage {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		try {
+			dos.writeInt(rightSibling);
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		// highKey
 		try {
 			highKey.serialize(dos);
@@ -253,6 +267,7 @@ public class BLinkTreeInternalPage extends BTreeInternalPage {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+
 
 		// write out the child page category
 		try {

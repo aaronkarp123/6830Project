@@ -329,6 +329,15 @@ public class BLinkTreeLeafPage extends BTreeLeafPage {
 				break;
 			}
 		}
+		
+		if ( getRightSiblingId() != null && t.getField(keyField).compare(Predicate.Op.GREATER_THAN_OR_EQ, highKey) ){
+			// insert tuple on right sibling and return
+			System.out.println("Should not happen with single Tx");
+		} else {
+			if (getRightSiblingId() == null && t.getField(keyField).compare(Predicate.Op.GREATER_THAN_OR_EQ, highKey)){
+				highKey = t.getField(keyField);
+			}
+		}
 
 		if (emptySlot == -1)
 			throw new DbException("called addTuple on page with no empty slots.");
@@ -344,6 +353,8 @@ public class BLinkTreeLeafPage extends BTreeLeafPage {
 					break;	
 			}
 		}
+		
+		// If the link pointer does not exist, update the high key
 
 		// shift records back or forward to fill empty slot and make room for new record
 		// while keeping records in sorted order
@@ -443,6 +454,10 @@ public class BLinkTreeLeafPage extends BTreeLeafPage {
 			}
 			rightSibling = id.pageNumber();
 		}
+	}
+	
+	public Field getHighKey() {
+		return highKey;
 	}
 
 	/**

@@ -369,7 +369,7 @@ public class BLinkTreeFile extends BTreeFile {
 		String s = "";
 		for (int i=0;i<level;i++) s+= "\t";
  		
- 		if (pid.pgcateg() == pid.INTERNAL){
+ 		if (pid.pgcateg() == BTreePageId.INTERNAL){
  			BLinkTreeInternalPage p = (BLinkTreeInternalPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
  			Iterator<BTreeEntry> it = p.iterator();
  			System.out.println(s + "INTERNAL" +" pgNo: "+pid.pageNumber() + " numKeys: "+p.getNumEntries() +" empty: "+p.getNumEmptySlots()  + " parent "+p.getParentId() );
@@ -384,7 +384,7 @@ public class BLinkTreeFile extends BTreeFile {
  			PrintStructure(tid, dirtypages, e.getRightChild(), level+1);
  		} else {
  			BLinkTreeLeafPage p = (BLinkTreeLeafPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
- 			System.out.println(s + "LEAF" +" pgNo: "+pid.pageNumber() + " parent "+p.getParentId().pageNumber() + " left "+( p.getLeftSiblingId()==null?"null" :  p.getLeftSiblingId().pageNumber()) +" right "+( p.getRightSiblingId()==null?"null" :  p.getRightSiblingId().pageNumber()));
+ 			System.out.println(s + "LEAF" +" pgNo: "+pid.pageNumber() + " parent "+p.getParentId().pageNumber() + " left "+( p.getLeftSiblingId()==null?"null" :  p.getLeftSiblingId().pageNumber()) +" right "+( p.getRightSiblingId()==null?"null" :  p.getRightSiblingId().pageNumber()) + " highKey " + p.getHighKey());
  			DumpLeafPage(p, s);
  		}
 	}
