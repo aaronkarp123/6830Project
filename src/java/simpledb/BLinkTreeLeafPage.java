@@ -83,6 +83,13 @@ public class BLinkTreeLeafPage extends BTreeLeafPage {
 		} catch (java.text.ParseException e) {
 			e.printStackTrace();
 		}
+		// Add highKey
+		try {
+			Field f = td.getFieldType(keyField).parse(dis);
+			this.highKey = f;
+		} catch (java.text.ParseException e) {
+			e.printStackTrace();
+		}
 
 		// allocate and read the header slots of this page
 		header = new byte[getHeaderSize()];
@@ -106,9 +113,10 @@ public class BLinkTreeLeafPage extends BTreeLeafPage {
 	 * Retrieve the maximum number of tuples this page can hold.
 	 */
 	public int getMaxTuples() {        
+		int keySize = td.getFieldType(keyField).getLen();
 		int bitsPerTupleIncludingHeader = td.getSize() * 8 + 1;
-		// extraBits are: left sibling pointer, right sibling pointer, parent pointer
-		int extraBits = 3 * INDEX_SIZE * 8; 
+		// extraBits are: left sibling pointer, right sibling pointer, parent pointer + highKey
+		int extraBits = 3 * INDEX_SIZE * 8 + keySize * 8; 
 		int tuplesPerPage = (BufferPool.getPageSize()*8 - extraBits) / bitsPerTupleIncludingHeader; //round down
 		return tuplesPerPage;
 	}
@@ -215,6 +223,13 @@ public class BLinkTreeLeafPage extends BTreeLeafPage {
 		try {
 			dos.writeInt(rightSibling);
 
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		// highKey
+		try {
+			highKey.serialize(dos);
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

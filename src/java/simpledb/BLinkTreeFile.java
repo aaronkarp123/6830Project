@@ -83,11 +83,11 @@ public class BLinkTreeFile extends BTreeFile {
 				}
 				Debug.log(1, "BTreeFile.readPage: read page %d", id.pageNumber());
 				if(id.pgcateg() == BTreePageId.INTERNAL) {
-					BTreeInternalPage p = new BTreeInternalPage(id, pageBuf, keyField);
+					BLinkTreeInternalPage p = new BLinkTreeInternalPage(id, pageBuf, keyField);
 					return p;
 				}
 				else if(id.pgcateg() == BTreePageId.LEAF) {
-					BTreeLeafPage p = new BTreeLeafPage(id, pageBuf, keyField);
+					BLinkTreeLeafPage p = new BLinkTreeLeafPage(id, pageBuf, keyField);
 					return p;
 				}
 				else { // id.pgcateg() == BTreePageId.HEADER
@@ -132,9 +132,9 @@ public class BLinkTreeFile extends BTreeFile {
 		// some code goes here
             switch (pid.pgcateg()) {
                 case BTreePageId.LEAF:
-                    return (BTreeLeafPage)(this.getPage(tid, dirtypages, pid, perm));
+                    return (BLinkTreeLeafPage)(this.getPage(tid, dirtypages, pid, perm));
                 case BTreePageId.INTERNAL:
-                    BTreeInternalPage pg = (BTreeInternalPage)(this.getPage(tid, dirtypages, pid, Permissions.READ_ONLY));
+                    BLinkTreeInternalPage pg = (BLinkTreeInternalPage)(this.getPage(tid, dirtypages, pid, Permissions.READ_ONLY));
                     Iterator<BTreeEntry> es = pg.iterator();
                     if (es == null || !es.hasNext())
                         throw new DbException("Illegal entry iterator.");
@@ -370,7 +370,7 @@ public class BLinkTreeFile extends BTreeFile {
 		for (int i=0;i<level;i++) s+= "\t";
  		
  		if (pid.pgcateg() == pid.INTERNAL){
- 			BTreeInternalPage p = (BTreeInternalPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
+ 			BLinkTreeInternalPage p = (BLinkTreeInternalPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
  			Iterator<BTreeEntry> it = p.iterator();
  			System.out.println(s + "INTERNAL" +" pgNo: "+pid.pageNumber() + " numKeys: "+p.getNumEntries() +" empty: "+p.getNumEmptySlots()  + " parent "+p.getParentId() );
  			BTreeEntry e = null;
@@ -383,7 +383,7 @@ public class BLinkTreeFile extends BTreeFile {
  			//System.out.println(s+"Right Child");
  			PrintStructure(tid, dirtypages, e.getRightChild(), level+1);
  		} else {
- 			BTreeLeafPage p = (BTreeLeafPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
+ 			BLinkTreeLeafPage p = (BLinkTreeLeafPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
  			System.out.println(s + "LEAF" +" pgNo: "+pid.pageNumber() + " parent "+p.getParentId().pageNumber() + " left "+( p.getLeftSiblingId()==null?"null" :  p.getLeftSiblingId().pageNumber()) +" right "+( p.getRightSiblingId()==null?"null" :  p.getRightSiblingId().pageNumber()));
  			DumpLeafPage(p, s);
  		}
@@ -399,7 +399,7 @@ public class BLinkTreeFile extends BTreeFile {
 	public void DumpLeafPageId(int pageNo){
 		System.out.println("Page "+pageNo +" Dump");
 		try {
-			BTreeLeafPage p = (BTreeLeafPage) getPage(new TransactionId(), new HashMap<PageId,Page>(), new BTreePageId(tableid, pageNo, BTreePageId.LEAF),Permissions.READ_ONLY );
+			BLinkTreeLeafPage p = (BLinkTreeLeafPage) getPage(new TransactionId(), new HashMap<PageId,Page>(), new BTreePageId(tableid, pageNo, BTreePageId.LEAF),Permissions.READ_ONLY );
 			DumpLeafPage(p,"");
 		} catch (DbException | TransactionAbortedException e) {
 			// TODO Auto-generated catch block
@@ -420,7 +420,7 @@ public class BLinkTreeFile extends BTreeFile {
 	 * @return an iterator for the filtered tuples
 	 */
 	public DbFileIterator indexIterator(TransactionId tid, IndexPredicate ipred) {
-		return new BTreeSearchIterator(this, tid, ipred);
+		return new BLinkTreeSearchIterator(this, tid, ipred);
 	}
 
 	/**

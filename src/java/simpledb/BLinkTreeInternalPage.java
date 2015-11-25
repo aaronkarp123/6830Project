@@ -15,8 +15,8 @@ import simpledb.Predicate.Op;
  */
 public class BLinkTreeInternalPage extends BTreeInternalPage {
 	
-	private int childCategory; // either leaf or internal
-
+	private Field highKey;
+	
 	public void checkRep(Field lowerBound, Field upperBound, boolean checkOccupancy, int depth) {
 		Field prev = lowerBound;
 		assert(this.getId().pgcateg() == BTreePageId.INTERNAL);
@@ -73,6 +73,13 @@ public class BLinkTreeInternalPage extends BTreeInternalPage {
 		} catch (java.text.ParseException e) {
 			e.printStackTrace();
 		}
+		// highkey
+		try {
+			Field f = td.getFieldType(keyField).parse(dis);
+			this.highKey = f;
+		} catch (java.text.ParseException e) {
+			e.printStackTrace();
+		}
 
 		// read the child page category
 		childCategory = (int) dis.readByte();
@@ -114,8 +121,8 @@ public class BLinkTreeInternalPage extends BTreeInternalPage {
 		int keySize = td.getFieldType(keyField).getLen();
 		int bitsPerEntryIncludingHeader = keySize * 8 + INDEX_SIZE * 8 + 1;
 		// extraBits are: one parent pointer, 1 byte for child page category, 
-		// one extra child pointer (node with m entries has m+1 pointers to children), 1 bit for extra header
-		int extraBits = 2 * INDEX_SIZE * 8 + 8 + 1; 
+		// one extra child pointer (node with m entries has m+1 pointers to children), 1 bit for extra header + highkey
+		int extraBits = 2 * INDEX_SIZE * 8 + 8 + 1 + keySize*8; 
 		int entriesPerPage = (BufferPool.getPageSize()*8 - extraBits) / bitsPerEntryIncludingHeader; //round down
 		return entriesPerPage;
 	}
@@ -236,6 +243,13 @@ public class BLinkTreeInternalPage extends BTreeInternalPage {
 		try {
 			dos.writeInt(parent);
 
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		// highKey
+		try {
+			highKey.serialize(dos);
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
