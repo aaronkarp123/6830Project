@@ -121,6 +121,34 @@ public class BLinkTreeInternalPage extends BTreeInternalPage {
 
 		setBeforeImage();
 	}
+	
+	public Field getHighKey(){
+		return highKey;
+	}
+	public void setHighKey(Field f) {
+		// TODO Auto-generated method stub
+		highKey = f;
+	}
+	public BTreePageId getRightSiblingId() {
+		if(rightSibling == 0) {
+			return null;
+		}
+		return new BTreePageId(pid.getTableId(), rightSibling, BTreePageId.INTERNAL);
+	}
+	public void setRightSiblingId(BTreePageId id) throws DbException {
+		if(id == null) {
+			rightSibling = 0;
+		}
+		else {
+			if(id.getTableId() != pid.getTableId()) {
+				throw new DbException("table id mismatch in setRightSiblingId");
+			}
+			if(id.pgcateg() != BTreePageId.INTERNAL) {
+				throw new DbException("rightSibling must be a internal node");
+			}
+			rightSibling = id.pageNumber();
+		}
+	}
 
 	/** 
 	 * Retrieve the maximum number of entries this page can hold. (The number of keys)
@@ -129,8 +157,8 @@ public class BLinkTreeInternalPage extends BTreeInternalPage {
 		int keySize = td.getFieldType(keyField).getLen();
 		int bitsPerEntryIncludingHeader = keySize * 8 + INDEX_SIZE * 8 + 1;
 		// extraBits are: one parent pointer, 1 byte for child page category, 
-		// one extra child pointer (node with m entries has m+1 pointers to children), 1 bit for extra header + highkey
-		int extraBits = 2 * INDEX_SIZE * 8 + 8 + 1 + keySize*8; 
+		// one extra child pointer (node with m entries has m+1 pointers to children), 1 bit for extra header + highkey + right sibling
+		int extraBits = 3 * INDEX_SIZE * 8 + 8 + 1 + keySize*8; 
 		int entriesPerPage = (BufferPool.getPageSize()*8 - extraBits) / bitsPerEntryIncludingHeader; //round down
 		return entriesPerPage;
 	}
@@ -692,6 +720,8 @@ public class BLinkTreeInternalPage extends BTreeInternalPage {
 			throw new NoSuchElementException();
 		}
 	}
+
+
 }
 
 /**

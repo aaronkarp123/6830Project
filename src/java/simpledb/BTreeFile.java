@@ -380,7 +380,7 @@ public class BTreeFile implements DbFile {
 	 * @throws IOException
 	 * @throws TransactionAbortedException
 	 */
-	private BTreeInternalPage getParentWithEmptySlots(TransactionId tid, HashMap<PageId, Page> dirtypages, 
+	protected BTreeInternalPage getParentWithEmptySlots(TransactionId tid, HashMap<PageId, Page> dirtypages, 
 			BTreePageId parentId, Field field) throws DbException, IOException, TransactionAbortedException {
 		
 		BTreeInternalPage parent = null;
@@ -426,7 +426,7 @@ public class BTreeFile implements DbFile {
 	 * @throws IOException
 	 * @throws TransactionAbortedException
 	 */
-	private void updateParentPointer(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, BTreePageId child) 
+	protected void updateParentPointer(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, BTreePageId child) 
 			throws DbException, IOException, TransactionAbortedException {
 
 		BTreePage p = (BTreePage) getPage(tid, dirtypages, child, Permissions.READ_ONLY);
@@ -1128,7 +1128,7 @@ public class BTreeFile implements DbFile {
 	 * @throws IOException
 	 * @throws TransactionAbortedException
 	 */
-	private Page getEmptyPage(TransactionId tid, HashMap<PageId, Page> dirtypages, int pgcateg)
+	protected Page getEmptyPage(TransactionId tid, HashMap<PageId, Page> dirtypages, int pgcateg)
 			throws DbException, IOException, TransactionAbortedException {
 		// create the new page
 		int emptyPageNo = getEmptyPageNo(tid, dirtypages);

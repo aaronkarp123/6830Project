@@ -51,16 +51,17 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 	public void Test() throws Exception {    	
 		File f = File.createTempFile("tmp", "txt");
 		f.deleteOnExit();
-		BTreeFile b = new BTreeFile( f, 0 , td);
+		BufferPool.setPageSize(300);
+		BLinkTreeFile b = new BLinkTreeFile( f, 0 , td);
 		Database.getCatalog().addTable(b);
 		//PrintTree(b);
-		for (int i=0;i<1000;i++){
-			if (i%10000==0) {
+		for (int i=0;i<5014;i++){
+			if (i%10==0) {
 				Database.getBufferPool().transactionComplete(tid);
 				tid = new TransactionId();
 			}
 			Tuple t = new Tuple(td);
-			t.setField(0, new IntField(i));
+			t.setField(0, new IntField( (i*4567) %512));
 			t.setField(1, new IntField(i));
 			//System.out.println(t);
 			ArrayList<Page> dirty =b.insertTuple( tid, t);
@@ -70,8 +71,8 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 		}
 		System.out.println("NumPages "+b.numPages());
 		PrintTree(b);
-		BTreeChecker.checkRep(b, tid, dirtypages, false);
-		
+		//BTreeChecker.checkRep(b, tid, dirtypages, false);
+	
 	}
 	
 

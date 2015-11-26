@@ -459,6 +459,9 @@ public class BLinkTreeLeafPage extends BTreeLeafPage {
 	public Field getHighKey() {
 		return highKey;
 	}
+	public void setHighKey(Field f){
+		highKey = f;
+	}
 
 	/**
 	 * Returns the number of tuples currently stored on this page

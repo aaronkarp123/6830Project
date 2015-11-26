@@ -19,4 +19,11 @@ I am implementing the cycle detection scheme, and once that is done, we can move
 So forget about concurrency. This is a reasonable baseline to implement at least the serial version
 of the B-Tree that was proposed in the paper.
 
+Other notes
+
+For BLinkTree - got rid of the parent and left sibling pointers since I'm not sure whether its possible to make them work correctly under new semantics.
+
+The notion of highkey is only valid if there is no right Sibling. Therefore the field highkey is not maintained if no right sibling.
+(If it was to be maintained, then each page down the hierachy would have to be updated when a key greater than the largest on record is inserted)
+
 
