@@ -26,4 +26,4 @@ For BLinkTree - got rid of the parent and left sibling pointers since I'm not su
 The notion of highkey is only valid if there is no right Sibling. Therefore the field highkey is not maintained if no right sibling.
 (If it was to be maintained, then each page down the hierachy would have to be updated when a key greater than the largest on record is inserted)
 
-
+I'm not too sure if the concurrent insert procedure given in the paper holds when the root splits. Therefore the current test makes sure that this doesn't happen (by some sequential inserts untils the root splits twice) 
