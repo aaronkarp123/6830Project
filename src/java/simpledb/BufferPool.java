@@ -20,7 +20,8 @@ public class BufferPool {
 
     private static int pageSize = PAGE_SIZE;
 
-    private static int TIMEOUT_THRESHOLD = 200;
+    private static int TIMEOUT_THRESHOLD = 2200;
+    static boolean DEBUG_ON = false;
     
     /** Default number of pages passed to the constructor. This is used by
     other classes. BufferPool should use the numPages argument to the
@@ -28,7 +29,7 @@ public class BufferPool {
     public static final int DEFAULT_PAGES = 50;
 
     private int numPages;
-    private HashMap<PageId, Page> pageMap;
+    private ConcurrentHashMap<PageId, Page> pageMap;
     private LockManager lm;
 
     /**
@@ -39,7 +40,7 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // some code goes here
         this.numPages = numPages;
-        pageMap = new HashMap<PageId, Page>();
+        pageMap = new ConcurrentHashMap<PageId, Page>();
         lm = new LockManager();
     }
     
@@ -82,7 +83,7 @@ public class BufferPool {
             try {
                 long end = System.currentTimeMillis();
                 if (end - start > TIMEOUT_THRESHOLD) {
-                    //System.out.println("Abort: waiting for Tid = " + tid.toString() + ", Pid = " + pid.toString() + ", Perm = " + perm.toString());
+                    System.out.println("Abort: waiting for Tid = " + tid.getId() + ", Pid = " + pid.toString() + ", Perm = " + perm.toString());
                     throw new TransactionAbortedException();
                 }
                 Thread.sleep(10);
@@ -323,6 +324,9 @@ public class BufferPool {
                 success = acquireExclusiveLock(tid, pid);
             } else if (perm.equals(Permissions.READ_ONLY)) {
                 success = acquireSharedLock(tid, pid);
+            } else if (perm.equals(Permissions.NO_LOCK)) {
+            	if (BufferPool.DEBUG_ON) System.out.println("Tx "+tid.getId() +" Nol "+pid);
+                success = true;
             } else {
                 assert false : "What?!";
             }
@@ -422,12 +426,14 @@ public class BufferPool {
             }
             addOwner(tid, pid);
             checkConsistency();
+            if (BufferPool.DEBUG_ON) System.out.println("Tx "+ tid.getId() + " Xlock Acq "+ pid);
             return true;
         }
         private boolean acquireSharedLock(TransactionId tid, PageId pid) {
             checkConsistency();
             Set<TransactionId> sharer = sharers.get(pid);
             TransactionId owner = owners.get(pid);
+            System.out.println("Tx "+ tid.getId() + " Slock Acq "+ pid);
             assert owner == null || sharer == null : "owner and sharer are not null at the same time!";
             if (owner != null && !owner.equals(tid)) {
                 // There is an existing owner other than itself
@@ -450,6 +456,7 @@ public class BufferPool {
             if (ownedPage != null && ownedPage.contains(pid)) {
                 removeOwner(tid, pid);
             }
+            if (BufferPool.DEBUG_ON) System.out.println("Tx "+ tid.getId() + " Xlock Rel "+ pid);
         }
         public synchronized void releaseAllLocks(TransactionId tid) {
             checkConsistency();

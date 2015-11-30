@@ -22,7 +22,7 @@ public class Permissions {
 
   public static final Permissions READ_ONLY = new Permissions(0);
   public static final Permissions READ_WRITE = new Permissions(1);
-  public static final Permissions NO_LOCK = new Permissions(0); // Temperory set to same as READ_ONLY FIXME
+  public static final Permissions NO_LOCK = new Permissions(2); // Temperory set to same as READ_ONLY FIXME
 
 	@Override
 	public boolean equals(Object obj) {

@@ -378,6 +378,7 @@ public class BLinkTreeLeafPage extends BTreeLeafPage {
 		RecordId rid = new RecordId(pid, goodSlot);
 		t.setRecordId(rid);
 		tuples[goodSlot] = t;
+		
 	}
 
 	/**

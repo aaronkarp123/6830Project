@@ -221,6 +221,7 @@ public class BLinkTreeFile extends BTreeFile {
 		// the sibling pointers of all the affected leaf pages.  Return the page into which a 
 		// tuple with the given key field should be inserted.
 		 BLinkTreeLeafPage npage = (BLinkTreeLeafPage)getEmptyPage(tid, dirtypages, BTreePageId.LEAF);
+		 System.out.println("Tx "+tid.getId() +" split leaf "+ page.getId() +" <--> "+npage.getId());
 		 Iterator<Tuple> ts = page.iterator();
 		 if (ts == null || !ts.hasNext()) throw new DbException("Illegal tuple iterator.");
 		 // Move (left half) tuples to the new leaf page
@@ -289,6 +290,7 @@ public class BLinkTreeFile extends BTreeFile {
 		// will be useful here.  Return the page into which an entry with the given key field
 		// should be inserted.
 		BLinkTreeInternalPage npage = (BLinkTreeInternalPage)getEmptyPage(tid, dirtypages, BTreePageId.INTERNAL);
+		System.out.println("Tx "+tid.getId() +" split internal "+ page.getId() +" <--> "+npage.getId());
         Iterator<BTreeEntry> es = page.iterator();
         if (es == null || !es.hasNext()) throw new DbException("Illegal entry iterator.");
         // Move (left half) entries to the new page
@@ -367,6 +369,7 @@ public class BLinkTreeFile extends BTreeFile {
 		case BTreePageId.INTERNAL:
 			BLinkTreeInternalPage pg = (BLinkTreeInternalPage) this.getPage(tid, dirtypages, pid, Permissions.NO_LOCK);
 			while (pg.getRightSiblingId() != null && !t.getField(keyField).compare(Op.LESS_THAN, pg.getHighKey())){
+				System.out.println("Tx "+tid.getId() +" internal 1 move.right");
 				pg = (BLinkTreeInternalPage) this.getPage(tid, dirtypages, pg.getRightSiblingId(), Permissions.NO_LOCK);
 			}
 			
@@ -389,17 +392,21 @@ public class BLinkTreeFile extends BTreeFile {
 			
 			BTreeEntry ret = insert(tid,t,child,dirtypages);
 			// 
-			pg = (BLinkTreeInternalPage) this.getPage(tid, dirtypages, pid, Permissions.READ_WRITE); // pop(stack)
-			while (pg.getRightSiblingId() != null && !t.getField(keyField).compare(Op.LESS_THAN, pg.getHighKey())){
-				BLinkTreeInternalPage old = pg;
-				pg = (BLinkTreeInternalPage) this.getPage(tid, dirtypages, pg.getRightSiblingId(), Permissions.READ_WRITE);
-				Database.getBufferPool().releasePage(tid, old.getId());
-			}
-			Database.getBufferPool().releasePage(tid, child);
-			
 			if (ret !=null) {
+				
+				pg = (BLinkTreeInternalPage) this.getPage(tid, dirtypages, pid, Permissions.READ_WRITE); // pop(stack)
+				while (pg.getRightSiblingId() != null && !t.getField(keyField).compare(Op.LESS_THAN, pg.getHighKey())){
+					BLinkTreeInternalPage old = pg;
+					System.out.println("Tx "+tid.getId() +" internal 2 move.right");
+					pg = (BLinkTreeInternalPage) this.getPage(tid, dirtypages, pg.getRightSiblingId(), Permissions.READ_WRITE);
+					Database.getBufferPool().releasePage(tid, old.getId());
+				}
+				Database.getBufferPool().releasePage(tid, ret.getLeftChild());
+				Database.getBufferPool().releasePage(tid, ret.getRightChild());
+			
 				if (pg.getNumEmptySlots() >0){
 					pg.insertEntry(ret);
+					Database.getBufferPool().releasePage(tid, pg.getId());
 				} else {
 					BLinkTreeInternalPage npage = splitInternalPage(tid, dirtypages, pg, t.getField(keyField));
 					Field mid = pg.getHighKey();
@@ -419,11 +426,13 @@ public class BLinkTreeFile extends BTreeFile {
 			BLinkTreeLeafPage page = (BLinkTreeLeafPage) this.getPage(tid, dirtypages, pid, Permissions.READ_WRITE);
 			while (page.getRightSiblingId() != null && !t.getField(keyField).compare(Op.LESS_THAN, page.getHighKey())){
 				BLinkTreeLeafPage old = page;
+				System.out.println("Tx "+tid.getId() +" leaf move.right " +old.getId());
 				page = (BLinkTreeLeafPage) this.getPage(tid, dirtypages, page.getRightSiblingId(), Permissions.READ_WRITE);
 				Database.getBufferPool().releasePage(tid, old.getId());
 			}
 			if(page.getNumEmptySlots() > 0) {
 				page.insertTuple(t);
+				if (BufferPool.DEBUG_ON) System.out.println("Tx "+tid.getId() +" inserted "+t.getField(0)+" on "+page.getId());
 				Database.getBufferPool().releasePage(tid, page.getId());
 				return null;
 			} else {
@@ -431,8 +440,10 @@ public class BLinkTreeFile extends BTreeFile {
 				Field mid = page.getHighKey();
 				if (t.getField(keyField).compare(Op.GREATER_THAN_OR_EQ, mid)){
 					npage.insertTuple(t);
+					if (BufferPool.DEBUG_ON) System.out.println("Tx "+tid.getId() +" inserted "+t.getField(0)+" on "+npage.getId());
 				} else {
 					page.insertTuple(t);
+					if (BufferPool.DEBUG_ON) System.out.println("Tx "+tid.getId() +" inserted "+t.getField(0)+" on "+page.getId());
 				}
 				BTreeEntry e = new BTreeEntry(mid, page.getId(), npage.getId());
 		         // Handle the parent
@@ -461,12 +472,13 @@ public class BLinkTreeFile extends BTreeFile {
 		
 		BTreeRootPtrPage rootPtr;
 		BTreePageId rootId;
-		
+		if (BufferPool.DEBUG_ON) System.out.println("Tx "+tid.getId() +" insert "+t.getField(0));
 		synchronized (this) {
 			rootPtr = getRootPtrPage(tid, dirtypages);
 			rootId = rootPtr.getRootId();
 	
 			if(rootId == null) { // the root has just been created, so set the root pointer to point to it		
+				System.out.println("Tx "+tid.getId() +" rootPtr");
 				rootId = new BTreePageId(tableid, numPages(), BTreePageId.LEAF);
 				rootPtr = (BTreeRootPtrPage) getPage(tid, dirtypages, BTreeRootPtrPage.getId(tableid), Permissions.READ_WRITE);
 				rootPtr.setRootId(rootId);
@@ -475,8 +487,9 @@ public class BLinkTreeFile extends BTreeFile {
 		
 		BTreeEntry be = insert(tid,t,rootId,dirtypages);
 		if (be != null){
+			
 			BLinkTreeInternalPage parent = (BLinkTreeInternalPage) getEmptyPage(tid, dirtypages, BTreePageId.INTERNAL);
-
+			System.out.println("Tx "+tid.getId() +" new Root "+parent.getId());
 			// update the root pointer
 			rootPtr = (BTreeRootPtrPage) getPage(tid, dirtypages,
 					BTreeRootPtrPage.getId(tableid), Permissions.READ_WRITE);
@@ -487,10 +500,15 @@ public class BLinkTreeFile extends BTreeFile {
 			BTreePage prevRootPage = (BTreePage)getPage(tid, dirtypages, prevRootId, Permissions.READ_WRITE);
 			prevRootPage.setParentId(parent.getId());
 			parent.insertEntry(be);
+			Database.getBufferPool().releasePage(tid, be.getRightChild());
+			Database.getBufferPool().releasePage(tid, be.getLeftChild());
+			Database.getBufferPool().releasePage(tid, parent.getId());
+			Database.getBufferPool().releasePage(tid, rootPtr.getId());
 		}
 		
 		ArrayList<Page> dirtyPagesArr = new ArrayList<Page>();
 		dirtyPagesArr.addAll(dirtypages.values());
+		if (BufferPool.DEBUG_ON) System.out.println("Tx "+tid.getId() +" insert "+t.getField(0) + " end");
 		return dirtyPagesArr;
 	}
 	
@@ -547,7 +565,7 @@ public class BLinkTreeFile extends BTreeFile {
 		for (int i=0;i<level;i++) s+= "\t";
  		
  		if (pid.pgcateg() == BTreePageId.INTERNAL){
- 			BLinkTreeInternalPage p = (BLinkTreeInternalPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
+ 			BLinkTreeInternalPage p = (BLinkTreeInternalPage) getPage(tid, dirtypages, pid, Permissions.NO_LOCK);
  			Iterator<BTreeEntry> it = p.iterator();
  			System.out.println(s + "INTERNAL" +" pgNo: "+pid.pageNumber() + " numKeys: "+p.getNumEntries() +" empty: "+p.getNumEmptySlots() +" right "+( p.getRightSiblingId()==null?"null" :  p.getRightSiblingId().pageNumber()) +" highkey " + p.getHighKey() );
  			BTreeEntry e = null;
@@ -560,7 +578,7 @@ public class BLinkTreeFile extends BTreeFile {
  			//System.out.println(s+"Right Child");
  			PrintStructure(tid, dirtypages, e.getRightChild(), level+1);
  		} else {
- 			BLinkTreeLeafPage p = (BLinkTreeLeafPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
+ 			BLinkTreeLeafPage p = (BLinkTreeLeafPage) getPage(tid, dirtypages, pid, Permissions.NO_LOCK);
  			System.out.println(s + "LEAF" +" pgNo: "+pid.pageNumber() +" right "+( p.getRightSiblingId()==null?"null" :  p.getRightSiblingId().pageNumber()) + " highKey " + p.getHighKey());
  			DumpLeafPage(p, s);
  		}
