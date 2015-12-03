@@ -20,7 +20,7 @@ public class BufferPool {
 
     private static int pageSize = PAGE_SIZE;
 
-    private static int TIMEOUT_THRESHOLD = 2200;
+    private static int TIMEOUT_THRESHOLD = 10200;
     static boolean DEBUG_ON = false;
     
     /** Default number of pages passed to the constructor. This is used by
@@ -433,7 +433,7 @@ public class BufferPool {
             checkConsistency();
             Set<TransactionId> sharer = sharers.get(pid);
             TransactionId owner = owners.get(pid);
-            System.out.println("Tx "+ tid.getId() + " Slock Acq "+ pid);
+            if (BufferPool.DEBUG_ON) System.out.println("Tx "+ tid.getId() + " Slock Acq "+ pid);
             assert owner == null || sharer == null : "owner and sharer are not null at the same time!";
             if (owner != null && !owner.equals(tid)) {
                 // There is an existing owner other than itself

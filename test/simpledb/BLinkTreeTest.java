@@ -16,7 +16,8 @@ class DbTransaction extends Thread {
 
 	TransactionId tid = new TransactionId();
 	int id;
-	BLinkTreeFile b;
+	//BLinkTreeFile b;
+	BTreeFile b;
 	@Override
 	public void run() {
 		System.out.println("Tx "+tid.getId() +" Start on thread "+this.getName());
@@ -31,7 +32,7 @@ class DbTransaction extends Thread {
 				dirty = b.insertTuple( tid, t);
 			} catch (DbException | IOException | TransactionAbortedException e) {
 				e.printStackTrace();
-				System.exit(0);
+				//System.exit(0);
 			}
 			for (Page p: dirty){
 				p.markPageDirty(true, tid);
@@ -85,7 +86,7 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 	public void Test() throws Exception {    	
 		File f = File.createTempFile("tmp", "txt");
 		f.deleteOnExit();
-		BufferPool.setPageSize(300);
+		BufferPool.setPageSize(1000);
 		BLinkTreeFile b = new BLinkTreeFile( f, 0 , td);
 		Database.getCatalog().addTable(b);
 		//PrintTree(b);
@@ -112,8 +113,9 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 	public void TransTest() throws Exception {    	
 		File f = File.createTempFile("tmp", "txt");
 		f.deleteOnExit();
-		BufferPool.setPageSize(300);
-		BLinkTreeFile b = new BLinkTreeFile( f, 0 , td);
+		BufferPool.setPageSize(1000);
+		//BLinkTreeFile b = new BLinkTreeFile( f, 0 , td);
+		BTreeFile b = new BTreeFile( f, 0 , td);
 		Database.getCatalog().addTable(b);
 		//PrintTree(b);
 		for (int i=0;i<1014;i++){
@@ -132,16 +134,27 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 		}
 		Database.getBufferPool().transactionComplete(tid);
 		PrintTree(b);
-		BufferPool.DEBUG_ON = true;
-		for (int i=0;i<300;i++){
-			DbTransaction dbt = new DbTransaction();
-			dbt.b = b;
-			dbt.id = i;
-			dbt.start();
+		BufferPool.DEBUG_ON = false;
+		long time = System.nanoTime();
+		
+		final int NUM_TRANS = 1000;
+		
+		DbTransaction[] tx = new DbTransaction[NUM_TRANS];
+		for (int i=0;i<NUM_TRANS;i++){
+			tx[i]= new DbTransaction();
+			tx[i].b = b;
+			tx[i].id = i;
+			tx[i].start();
+			
 		}
-		Thread.sleep(2000);
+		for (Thread t: tx){
+			t.join();
+		}
+		long time1 = System.nanoTime();
+		//Thread.sleep(2000);
 		System.out.println("NumPages "+b.numPages());
 		PrintTree(b);
+		System.out.println("Time "+(time1-time)/1000000);
 		//BTreeChecker.checkRep(b, tid, dirtypages, false);
 	
 	}
