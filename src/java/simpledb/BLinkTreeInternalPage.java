@@ -13,14 +13,11 @@ import simpledb.Predicate.Op;
  * @see BufferPool
  *
  */
-public class BTreeInternalPage extends BTreePage {
-	protected byte header[];
-	protected Field keys[];
-	protected int children[];
-	protected int numSlots;
+public class BLinkTreeInternalPage extends BTreeInternalPage {
 	
-	protected int childCategory; // either leaf or internal
-
+	private Field highKey;
+	private int rightSibling;
+	
 	public void checkRep(Field lowerBound, Field upperBound, boolean checkOccupancy, int depth) {
 		Field prev = lowerBound;
 		assert(this.getId().pgcateg() == BTreePageId.INTERNAL);
@@ -65,8 +62,8 @@ public class BTreeInternalPage extends BTreePage {
 	 * @param data - the raw data of this page
 	 * @param key - the field which the index is keyed on
 	 */
-	public BTreeInternalPage(BTreePageId id, byte[] data, int key) throws IOException {
-		super(id, key);
+	public BLinkTreeInternalPage(BTreePageId id, byte[] data, int key) throws IOException {
+		super(id,key);
 		this.numSlots = getMaxEntries() + 1;
 		DataInputStream dis = new DataInputStream(new ByteArrayInputStream(data));
 
@@ -77,6 +74,20 @@ public class BTreeInternalPage extends BTreePage {
 		} catch (java.text.ParseException e) {
 			e.printStackTrace();
 		}
+		try {
+			Field f = Type.INT_TYPE.parse(dis);
+			this.rightSibling = ((IntField) f).getValue();
+		} catch (java.text.ParseException e) {
+			e.printStackTrace();
+		}
+		// highkey
+		try {
+			Field f = td.getFieldType(keyField).parse(dis);
+			this.highKey = f;
+		} catch (java.text.ParseException e) {
+			e.printStackTrace();
+		}
+
 
 		// read the child page category
 		childCategory = (int) dis.readByte();
@@ -110,9 +121,33 @@ public class BTreeInternalPage extends BTreePage {
 
 		setBeforeImage();
 	}
-	// A constructor so that the subclasses can call
-	public BTreeInternalPage(BTreePageId id, int key) throws IOException {
-		super(id,key);
+	
+	public Field getHighKey(){
+		return highKey;
+	}
+	public void setHighKey(Field f) {
+		// TODO Auto-generated method stub
+		highKey = f;
+	}
+	public BTreePageId getRightSiblingId() {
+		if(rightSibling == 0) {
+			return null;
+		}
+		return new BTreePageId(pid.getTableId(), rightSibling, BTreePageId.INTERNAL);
+	}
+	public void setRightSiblingId(BTreePageId id) throws DbException {
+		if(id == null) {
+			rightSibling = 0;
+		}
+		else {
+			if(id.getTableId() != pid.getTableId()) {
+				throw new DbException("table id mismatch in setRightSiblingId");
+			}
+			if(id.pgcateg() != BTreePageId.INTERNAL) {
+				throw new DbException("rightSibling must be a internal node");
+			}
+			rightSibling = id.pageNumber();
+		}
 	}
 
 	/** 
@@ -122,8 +157,8 @@ public class BTreeInternalPage extends BTreePage {
 		int keySize = td.getFieldType(keyField).getLen();
 		int bitsPerEntryIncludingHeader = keySize * 8 + INDEX_SIZE * 8 + 1;
 		// extraBits are: one parent pointer, 1 byte for child page category, 
-		// one extra child pointer (node with m entries has m+1 pointers to children), 1 bit for extra header
-		int extraBits = 2 * INDEX_SIZE * 8 + 8 + 1; 
+		// one extra child pointer (node with m entries has m+1 pointers to children), 1 bit for extra header + highkey + right sibling
+		int extraBits = 3 * INDEX_SIZE * 8 + 8 + 1 + keySize*8; 
 		int entriesPerPage = (BufferPool.getPageSize()*8 - extraBits) / bitsPerEntryIncludingHeader; //round down
 		return entriesPerPage;
 	}
@@ -142,14 +177,14 @@ public class BTreeInternalPage extends BTreePage {
 
 	/** Return a view of this page before it was modified
         -- used by recovery */
-	public BTreeInternalPage getBeforeImage(){
+	public BLinkTreeInternalPage getBeforeImage(){
 		try {
 			byte[] oldDataRef = null;
 			synchronized(oldDataLock)
 			{
 				oldDataRef = oldData;
 			}
-			return new BTreeInternalPage(pid,oldDataRef,keyField);
+			return new BLinkTreeInternalPage(pid,oldDataRef,keyField);
 		} catch (IOException e) {
 			e.printStackTrace();
 			//should never happen -- we parsed it OK before!
@@ -247,6 +282,20 @@ public class BTreeInternalPage extends BTreePage {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		try {
+			dos.writeInt(rightSibling);
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		// highKey
+		try {
+			highKey.serialize(dos);
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
 
 		// write out the child page category
 		try {
@@ -610,7 +659,7 @@ public class BTreeInternalPage extends BTreePage {
 	 * (note that this iterator shouldn't return entries in empty slots!)
 	 */
 	public Iterator<BTreeEntry> iterator() {
-		return new BTreeInternalPageIterator(this);
+		return new BLinkTreeInternalPageIterator(this);
 	}
 	
 	/**
@@ -618,7 +667,7 @@ public class BTreeInternalPage extends BTreePage {
 	 * (note that this iterator shouldn't return entries in empty slots!)
 	 */
 	public Iterator<BTreeEntry> reverseIterator() {
-		return new BTreeInternalPageReverseIterator(this);
+		return new BLinkTreeInternalPageReverseIterator(this);
 	}
 
 	/**
@@ -671,18 +720,20 @@ public class BTreeInternalPage extends BTreePage {
 			throw new NoSuchElementException();
 		}
 	}
+
+
 }
 
 /**
  * Helper class that implements the Java Iterator for entries on a BTreeInternalPage.
  */
-class BTreeInternalPageIterator implements Iterator<BTreeEntry> {
+class BLinkTreeInternalPageIterator implements Iterator<BTreeEntry> {
 	int curEntry = 1;
 	BTreePageId prevChildId = null;
 	BTreeEntry nextToReturn = null;
-	BTreeInternalPage p;
+	BLinkTreeInternalPage p;
 
-	public BTreeInternalPageIterator(BTreeInternalPage p) {
+	public BLinkTreeInternalPageIterator(BLinkTreeInternalPage p) {
 		this.p = p;
 	}
 
@@ -737,15 +788,15 @@ class BTreeInternalPageIterator implements Iterator<BTreeEntry> {
 /**
  * Helper class that implements the Java Iterator for entries on a BTreeInternalPage in reverse.
  */
-class BTreeInternalPageReverseIterator implements Iterator<BTreeEntry> {
+class BLinkTreeInternalPageReverseIterator implements Iterator<BTreeEntry> {
 	int curEntry;
 	BTreePageId childId = null;
 	Field key = null;
 	RecordId recordId = null;
 	BTreeEntry nextToReturn = null;
-	BTreeInternalPage p;
+	BLinkTreeInternalPage p;
 
-	public BTreeInternalPageReverseIterator(BTreeInternalPage p) {
+	public BLinkTreeInternalPageReverseIterator(BLinkTreeInternalPage p) {
 		this.p = p;
 		this.curEntry = p.getMaxEntries();
 		while(!p.isSlotUsed(curEntry) && curEntry > 0) {
