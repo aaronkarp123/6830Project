@@ -305,7 +305,7 @@ public class BufferPool {
         private HashMap<TransactionId, Set<PageId>> ownedPages;
 
         private HashMap<PageId, Set<TransactionId>> waiters;
-        private HashMap<TransactionId, Set<PageId>> waitedPages;
+        private HashMap<TransactionId, PageId> waitedPages;
 
         public LockManager() {
             sharers = new HashMap<PageId, Set<TransactionId>>();
@@ -313,9 +313,10 @@ public class BufferPool {
             sharedPages = new HashMap<TransactionId, Set<PageId>>();
             ownedPages = new HashMap<TransactionId, Set<PageId>>();
             waiters = new HashMap<PageId, Set<TransactionId>>();
-            waitedPages = new HashMap<TransactionId, Set<PageId>>();
+            waitedPages = new HashMap<TransactionId, PageId>();
         }
-        public synchronized boolean acquireLock(TransactionId tid, PageId pid, Permissions perm) {
+        public synchronized boolean acquireLock(TransactionId tid, PageId pid, Permissions perm)
+            throws TransactionAbortedException {
             checkConsistency();
             //System.out.println("************************************************************************************************************************Want: Tid = " + tid.toString() + ", Pid = " + pid.toString() + ", Perm = " + perm.toString());
             boolean success = false;
@@ -328,14 +329,22 @@ public class BufferPool {
             }
             if (success) {
                 //System.out.println("Success: Tid = " + tid.toString() + ", Pid = " + pid.toString() + ", Perm = " + perm.toString());
+                removeWaiter(tid, pid);
                 return true;
             } else {
-                detectDeadlock(tid, pid);
+                addWaiter(tid, pid);
+                if (detectDeadlock()) {
+                    // There is a deadlock
+                    removeWaiter(tid, pid);
+                    throw new TransactionAbortedException();
+                }
                 return false;
             }
         }
-        private void detectDeadlock(TransactionId tid, PageId pid) {
-            return;
+        private boolean detectDeadlock() {
+
+
+            return false;
         }
         private void checkConsistency() {
             for (PageId pid : sharers.keySet()) {
@@ -371,6 +380,21 @@ public class BufferPool {
             Set<TransactionId> sharer = sharers.get(pid);
             if (sharer != null && sharer.contains(tid)) return true;
             return false;
+        }
+        private void addWaiter(TransactionId tid, PageId pid) {
+            Set<TransactionId> waiter = waiters.get(pid);
+            if (waiter == null) waiter = new HashSet<TransactionId>();
+            waiter.add(tid);
+            waiters.put(pid, waiter);
+            assert waitedPages.get(tid) == null || waitedPages.get(tid).equals(pid) : "This transaction is waiting for another page!";
+            waitedPages.put(tid, pid);
+        }
+        private void removeWaiter(TransactionId tid, PageId pid) {
+            Set<TransactionId> waiter = waiters.get(pid);
+            waiter.remove(tid);
+            if (waiter.size() == 0) waiters.remove(pid);
+            else waiters.put(pid, waiter);
+            waitedPages.remove(tid);
         }
         private void addSharer(TransactionId tid, PageId pid) {
             Set<TransactionId> sharer = sharers.get(pid);
