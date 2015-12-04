@@ -1,5 +1,6 @@
 package simpledb;
 
+import simpledb.Predicate.Op;
 import simpledb.systemtest.SimpleDbTestBase;
 
 import java.io.File;
@@ -22,27 +23,68 @@ class DbTransaction extends Thread {
 	public void run() {
 		System.out.println("Tx "+tid.getId() +" Start on thread "+this.getName());
 		for (int i=0;i<20;i++){
-			Tuple t = new Tuple(b.getTupleDesc());
-			int val = ((i*4567) %51)*10 + id;
-			t.setField(0, new IntField(val) );
-			t.setField(1, new IntField(i));
-			//System.out.println(t);
-			ArrayList<Page> dirty = null;
-			try {
-				dirty = b.insertTuple( tid, t);
-			} catch (DbException | IOException | TransactionAbortedException e) {
-				e.printStackTrace();
-				//System.exit(0);
-			}
-			for (Page p: dirty){
-				p.markPageDirty(true, tid);
-			}
+			insertTuple();
+		}
+		for (int i=0;i<10;i++){
+			//findTuple();
+			
 		}
 		try {
 			Database.getBufferPool().transactionComplete(tid);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+	
+	ArrayList<Page> insertTuple(){
+		Tuple t = new Tuple(b.getTupleDesc());
+		int val = new Random().nextInt(512);
+		t.setField(0, new IntField(val) );
+		t.setField(1, new IntField(val));
+		//System.out.println(t);
+		ArrayList<Page> dirty = null;
+		try {
+			dirty = b.insertTuple( tid, t);
+		} catch (DbException dbe){
+			dbe.printStackTrace();
+			System.exit(0);
+		} catch (IOException | TransactionAbortedException e) {
+			e.printStackTrace();
+			try {
+				Database.getBufferPool().transactionComplete(tid,false);
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			//System.exit(0);
+		}
+		for (Page p: dirty){
+			p.markPageDirty(true, tid);
+		}
+		return dirty;
+	}
+	
+	boolean findTuple(){
+		DbFileIterator it =b.indexIterator(tid, new IndexPredicate(Op.EQUALS, new IntField(new Random().nextInt(512))));
+		try {
+			it.open();
+			if (it.hasNext()){
+				b.deleteTuple(tid, it.next());
+			}
+		} catch (DbException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (TransactionAbortedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (NoSuchElementException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return false;
 	}
 	
 }
@@ -70,15 +112,21 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 
 
 	
-	public void PrintTree(BTreeFile b){
+	public int PrintTree(BTreeFile b){
 		try {
-			
+			BufferPool.DEBUG_ON = false;
+			System.out.println("Printing Tree");
+			TransactionId tid = new TransactionId();
 			BTreePageId rootid = b.getRootPtrPage(tid, dirtypages).getRootId();
 			System.out.println("Root "+ rootid);
-			b.PrintStructure(tid, dirtypages, rootid, 0);
+			int nT =b.PrintStructure(tid, dirtypages, rootid, 0);
+			Database.getBufferPool().transactionComplete(tid);
+			return nT;
 		} catch (DbException | IOException | TransactionAbortedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			return 0;
+			
 		}
 	}
 	
@@ -110,12 +158,14 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 	
 	}
 	@Test
-	public void TransTest() throws Exception {    	
+	public void TransTest() throws Exception {   
+		BufferPool.DEBUG_ON = false;
 		File f = File.createTempFile("tmp", "txt");
 		f.deleteOnExit();
 		BufferPool.setPageSize(1000);
-		//BLinkTreeFile b = new BLinkTreeFile( f, 0 , td);
-		BTreeFile b = new BTreeFile( f, 0 , td);
+		
+		BLinkTreeFile b = new BLinkTreeFile( f, 0 , td);
+		//BTreeFile b = new BTreeFile( f, 0 , td);
 		Database.getCatalog().addTable(b);
 		//PrintTree(b);
 		for (int i=0;i<1014;i++){
@@ -133,11 +183,13 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 			}
 		}
 		Database.getBufferPool().transactionComplete(tid);
+		
 		PrintTree(b);
+		
 		BufferPool.DEBUG_ON = false;
 		long time = System.nanoTime();
 		
-		final int NUM_TRANS = 1000;
+		final int NUM_TRANS = 10;
 		
 		DbTransaction[] tx = new DbTransaction[NUM_TRANS];
 		for (int i=0;i<NUM_TRANS;i++){
@@ -152,8 +204,9 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 		}
 		long time1 = System.nanoTime();
 		//Thread.sleep(2000);
-		System.out.println("NumPages "+b.numPages());
-		PrintTree(b);
+		
+		int nT =PrintTree(b);
+		System.out.println("NumPages "+b.numPages() +" numTuples "+nT);
 		System.out.println("Time "+(time1-time)/1000000);
 		//BTreeChecker.checkRep(b, tid, dirtypages, false);
 	

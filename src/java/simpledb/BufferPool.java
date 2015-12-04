@@ -26,7 +26,7 @@ public class BufferPool {
     /** Default number of pages passed to the constructor. This is used by
     other classes. BufferPool should use the numPages argument to the
     constructor instead. */
-    public static final int DEFAULT_PAGES = 50;
+    public static final int DEFAULT_PAGES = 100;
 
     private int numPages;
     private ConcurrentHashMap<PageId, Page> pageMap;
@@ -79,10 +79,11 @@ public class BufferPool {
         // Acquire the proper lock first
         long start = System.currentTimeMillis();
         boolean success = lm.acquireLock(tid, pid, perm);
+        Random r = new Random();
         while (!success) {
             try {
                 long end = System.currentTimeMillis();
-                if (end - start > TIMEOUT_THRESHOLD) {
+                if (end - start > (TIMEOUT_THRESHOLD + r.nextInt(100))) {
                     System.out.println("Abort: waiting for Tid = " + tid.getId() + ", Pid = " + pid.toString() + ", Perm = " + perm.toString());
                     throw new TransactionAbortedException();
                 }
@@ -99,6 +100,9 @@ public class BufferPool {
            pageMap.put(pid, Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid));
            pageMap.get(pid).setBeforeImage();
         }
+        
+        if (perm==Permissions.READ_WRITE) 
+        	pageMap.get(pid).markPageDirty(true, tid);
         return pageMap.get(pid);
     }
 
@@ -126,6 +130,7 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1|lab2
         transactionComplete(tid, true);
+        if (BufferPool.DEBUG_ON) System.out.println("Tx "+tid.getId() +" complete");
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
@@ -147,6 +152,7 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1|lab2
         //System.out.println("TransactionComplete: Tid = " + tid.toString() + ", commit =" + commit);
+    	if (BufferPool.DEBUG_ON) System.out.println("Tx "+tid.getId() + (commit ? " commit" : " abort"));
         for (PageId pid : pageMap.keySet()) {
             if (pageMap.get(pid).isPageDirty() != null && pageMap.get(pid).isPageDirty().equals(tid)) {
                 if (commit) {

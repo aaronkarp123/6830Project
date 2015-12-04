@@ -981,7 +981,7 @@ public class BTreeFile implements DbFile {
 		return dirtyPagesArr;
 	}
 	
-	public void PrintStructure(TransactionId tid, HashMap<PageId, Page> dirtypages,BTreePageId pid /*root*/,int level) throws DbException, TransactionAbortedException{
+	public int PrintStructure(TransactionId tid, HashMap<PageId, Page> dirtypages,BTreePageId pid /*root*/,int level) throws DbException, TransactionAbortedException{
 		String s = "";
 		for (int i=0;i<level;i++) s+= "\t";
  		
@@ -990,18 +990,21 @@ public class BTreeFile implements DbFile {
  			Iterator<BTreeEntry> it = p.iterator();
  			System.out.println(s + "INTERNAL" +" pgNo: "+pid.pageNumber() + " numKeys: "+p.getNumEntries() +" empty: "+p.getNumEmptySlots()  + " parent "+p.getParentId() );
  			BTreeEntry e = null;
+ 			int nT=0;
  			while (it.hasNext()){
  				e = it.next();			
- 				PrintStructure(tid, dirtypages, e.getLeftChild(), level+1);
+ 				nT+=PrintStructure(tid, dirtypages, e.getLeftChild(), level+1);
  				System.out.println(s+"Key: "+e.getKey().toString());
  				//PrintStructure(tid, dirtypages, e.getRightChild(), level+1);
  			}
  			//System.out.println(s+"Right Child");
- 			PrintStructure(tid, dirtypages, e.getRightChild(), level+1);
+ 			nT+=PrintStructure(tid, dirtypages, e.getRightChild(), level+1);
+ 			return nT;
  		} else {
  			BTreeLeafPage p = (BTreeLeafPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
  			System.out.println(s + "LEAF" +" pgNo: "+pid.pageNumber() + " parent "+p.getParentId().pageNumber() + " left "+( p.getLeftSiblingId()==null?"null" :  p.getLeftSiblingId().pageNumber()) +" right "+( p.getRightSiblingId()==null?"null" :  p.getRightSiblingId().pageNumber()));
  			DumpLeafPage(p, s);
+ 			return p.getNumTuples();
  		}
 	}
 	public void DumpLeafPage(BTreeLeafPage page, String prefix){
@@ -1258,6 +1261,7 @@ public class BTreeFile implements DbFile {
 	public DbFileIterator iterator(TransactionId tid) {
 		return new BTreeFileIterator(this, tid);
 	}
+
 
 }
 

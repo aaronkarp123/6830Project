@@ -426,7 +426,7 @@ public class BLinkTreeFile extends BTreeFile {
 			BLinkTreeLeafPage page = (BLinkTreeLeafPage) this.getPage(tid, dirtypages, pid, Permissions.READ_WRITE);
 			while (page.getRightSiblingId() != null && !t.getField(keyField).compare(Op.LESS_THAN, page.getHighKey())){
 				BLinkTreeLeafPage old = page;
-				if (BufferPool.DEBUG_ON) System.out.println("Tx "+tid.getId() +" leaf move.right " +old.getId());
+				if (BufferPool.DEBUG_ON) System.out.println("Tx "+tid.getId() +" leaf move.right " +old.getId() + "--> "+page.getRightSiblingId());
 				page = (BLinkTreeLeafPage) this.getPage(tid, dirtypages, page.getRightSiblingId(), Permissions.READ_WRITE);
 				Database.getBufferPool().releasePage(tid, old.getId());
 			}
@@ -560,7 +560,7 @@ public class BLinkTreeFile extends BTreeFile {
 		return dirtyPagesArr;
 	}
 	
-	public void PrintStructure(TransactionId tid, HashMap<PageId, Page> dirtypages,BTreePageId pid /*root*/,int level) throws DbException, TransactionAbortedException{
+	public int PrintStructure(TransactionId tid, HashMap<PageId, Page> dirtypages,BTreePageId pid /*root*/,int level) throws DbException, TransactionAbortedException{
 		String s = "";
 		for (int i=0;i<level;i++) s+= "\t";
  		
@@ -569,18 +569,21 @@ public class BLinkTreeFile extends BTreeFile {
  			Iterator<BTreeEntry> it = p.iterator();
  			System.out.println(s + "INTERNAL" +" pgNo: "+pid.pageNumber() + " numKeys: "+p.getNumEntries() +" empty: "+p.getNumEmptySlots() +" right "+( p.getRightSiblingId()==null?"null" :  p.getRightSiblingId().pageNumber()) +" highkey " + p.getHighKey() );
  			BTreeEntry e = null;
+ 			int nT=0;
  			while (it.hasNext()){
  				e = it.next();			
- 				PrintStructure(tid, dirtypages, e.getLeftChild(), level+1);
+ 				nT+=PrintStructure(tid, dirtypages, e.getLeftChild(), level+1);
  				System.out.println(s+"Key: "+e.getKey().toString());
  				//PrintStructure(tid, dirtypages, e.getRightChild(), level+1);
  			}
  			//System.out.println(s+"Right Child");
- 			PrintStructure(tid, dirtypages, e.getRightChild(), level+1);
+ 			nT+=PrintStructure(tid, dirtypages, e.getRightChild(), level+1);
+ 			return nT;
  		} else {
  			BLinkTreeLeafPage p = (BLinkTreeLeafPage) getPage(tid, dirtypages, pid, Permissions.NO_LOCK);
  			System.out.println(s + "LEAF" +" pgNo: "+pid.pageNumber() +" right "+( p.getRightSiblingId()==null?"null" :  p.getRightSiblingId().pageNumber()) + " highKey " + p.getHighKey());
  			DumpLeafPage(p, s);
+ 			return p.getNumTuples();
  		}
 	}
 	public void DumpLeafPage(BTreeLeafPage page, String prefix){
@@ -775,10 +778,10 @@ class BLinkTreeSearchIterator extends AbstractDbFileIterator {
 		BTreePageId root = rootPtr.getRootId();
 		if(ipred.getOp() == Op.EQUALS || ipred.getOp() == Op.GREATER_THAN 
 				|| ipred.getOp() == Op.GREATER_THAN_OR_EQ) {
-			curp = f.findLeafPage(tid, root, Permissions.READ_ONLY, ipred.getField());
+			curp = f.findLeafPage(tid, root, Permissions.NO_LOCK, ipred.getField());
 		}
 		else {
-			curp = f.findLeafPage(tid, root, Permissions.READ_ONLY, null);
+			curp = f.findLeafPage(tid, root, Permissions.NO_LOCK, null);
 		}
 		it = curp.iterator();
 	}
@@ -819,7 +822,7 @@ class BLinkTreeSearchIterator extends AbstractDbFileIterator {
 			}
 			else {
 				curp = (BTreeLeafPage) Database.getBufferPool().getPage(tid,
-						nextp, Permissions.READ_ONLY);
+						nextp, Permissions.NO_LOCK);
 				it = curp.iterator();
 			}
 		}
