@@ -22,7 +22,7 @@ class DbTransaction extends Thread {
 	@Override
 	public void run() {
 		System.out.println("Tx "+tid.getId() +" Start on thread "+this.getName());
-		for (int i=0;i<20;i++){
+		for (int i=0;i<1;i++){
 			insertTuple();
 		}
 		for (int i=0;i<10;i++){
@@ -41,7 +41,7 @@ class DbTransaction extends Thread {
 		int val = new Random().nextInt(512);
 		t.setField(0, new IntField(val) );
 		t.setField(1, new IntField(val));
-		//System.out.println(t);
+		//System.out.println(tid + " "+val);
 		ArrayList<Page> dirty = null;
 		try {
 			dirty = b.insertTuple( tid, t);
@@ -49,15 +49,17 @@ class DbTransaction extends Thread {
 			dbe.printStackTrace();
 			System.exit(0);
 		} catch (IOException | TransactionAbortedException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 			try {
 				Database.getBufferPool().transactionComplete(tid,false);
 			} catch (IOException e1) {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
+			this.stop();
 			//System.exit(0);
 		}
+		
 		for (Page p: dirty){
 			p.markPageDirty(true, tid);
 		}
@@ -164,9 +166,10 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 		f.deleteOnExit();
 		BufferPool.setPageSize(1000);
 		
-		BLinkTreeFile b = new BLinkTreeFile( f, 0 , td);
-		//BTreeFile b = new BTreeFile( f, 0 , td);
+		//BLinkTreeFile b = new BLinkTreeFile( f, 0 , td);
+		BTreeFile b = new BTreeFile( f, 0 , td);
 		Database.getCatalog().addTable(b);
+		BufferPool.DETECT_DEADLOCK = !(b instanceof BLinkTreeFile);
 		//PrintTree(b);
 		for (int i=0;i<1014;i++){
 			if (i%10==0) {
@@ -189,7 +192,7 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 		BufferPool.DEBUG_ON = false;
 		long time = System.nanoTime();
 		
-		final int NUM_TRANS = 10;
+		final int NUM_TRANS = 400;
 		
 		DbTransaction[] tx = new DbTransaction[NUM_TRANS];
 		for (int i=0;i<NUM_TRANS;i++){
@@ -197,6 +200,7 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 			tx[i].b = b;
 			tx[i].id = i;
 			tx[i].start();
+			//if (i%10 == 0 )Thread.sleep(100);
 			
 		}
 		for (Thread t: tx){

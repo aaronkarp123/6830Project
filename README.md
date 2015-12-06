@@ -27,3 +27,19 @@ The notion of highkey is only valid if there is no right Sibling. Therefore the 
 (If it was to be maintained, then each page down the hierachy would have to be updated when a key greater than the largest on record is inserted)
 
 I'm not too sure if the concurrent insert procedure given in the paper holds when the root splits. Therefore the current test makes sure that this doesn't happen (by some sequential inserts untils the root splits twice) 
+
+Deadlock not possible when doing inserts only. Paper proves this. 
+But they can happen when doing a inserts and deletions together
+
+Bugs that still exist
+
+1. No clean pages to evict
+2. Deadlock Detection scheme has some false positives
+
+Numbers 
+
+300 - 570 / 63
+400 - 1300 / 75
+500 - 2500 / 90
+600 - 6000 / 110
+700 - 12000  / 138
