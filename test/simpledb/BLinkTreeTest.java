@@ -17,17 +17,21 @@ class DbTransaction extends Thread {
 
 	TransactionId tid = new TransactionId();
 	int id;
+	boolean delete = false;
 	//BLinkTreeFile b;
 	BTreeFile b;
 	@Override
 	public void run() {
-		System.out.println("Tx "+tid.getId() +" Start on thread "+this.getName());
-		for (int i=0;i<1;i++){
-			insertTuple();
-		}
-		for (int i=0;i<10;i++){
-			//findTuple();
-			
+		System.out.println("Tx "+tid.getId() +" Start on thread "+this.getName() + " id "+id);
+		if (!delete) {
+			for (int i=0;i<1;i++){
+				insertTuple();
+			}
+		} else {
+			for (int i=0;i<1;i++){
+				findTuple();
+				
+			}
 		}
 		try {
 			Database.getBufferPool().transactionComplete(tid);
@@ -52,11 +56,17 @@ class DbTransaction extends Thread {
 			//e.printStackTrace();
 			try {
 				Database.getBufferPool().transactionComplete(tid,false);
+				DbTransaction rep = new DbTransaction();
+				rep.b = b;
+				rep.id = id;
+				//rep.start();
+				//rep.join();
+				this.stop();
 			} catch (IOException e1) {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
-			}
-			this.stop();
+			} 
+			
 			//System.exit(0);
 		}
 		
@@ -71,14 +81,28 @@ class DbTransaction extends Thread {
 		try {
 			it.open();
 			if (it.hasNext()){
-				b.deleteTuple(tid, it.next());
+				Tuple t = it.next();
+				//System.out.println("Tx "+Thread.currentThread().getId() +" "+t + " "+ t.getRecordId().tupleno());
+				if (t.getRecordId() != null)b.deleteTuple(tid, t);
 			}
 		} catch (DbException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			//System.out.println("Tx "+Thread.currentThread().getId()+ " "+e.getMessage());
+			//e.printStackTrace();
 		} catch (TransactionAbortedException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			try {
+				Database.getBufferPool().transactionComplete(tid,false);
+				DbTransaction rep = new DbTransaction();
+				rep.b = b;
+				rep.id = id;
+				//rep.start();
+				//rep.join();
+				this.stop();
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			} 
 		} catch (NoSuchElementException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -166,8 +190,8 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 		f.deleteOnExit();
 		BufferPool.setPageSize(1000);
 		
-		//BLinkTreeFile b = new BLinkTreeFile( f, 0 , td);
-		BTreeFile b = new BTreeFile( f, 0 , td);
+		BLinkTreeFile b = new BLinkTreeFile( f, 0 , td);
+		//BTreeFile b = new BTreeFile( f, 0 , td);
 		Database.getCatalog().addTable(b);
 		BufferPool.DETECT_DEADLOCK = !(b instanceof BLinkTreeFile);
 		//PrintTree(b);
@@ -192,14 +216,18 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 		BufferPool.DEBUG_ON = false;
 		long time = System.nanoTime();
 		
-		final int NUM_TRANS = 400;
-		
+		final int NUM_TRANS = 4000;
+		//final int NUM_TRANS = 1;
+
 		DbTransaction[] tx = new DbTransaction[NUM_TRANS];
 		for (int i=0;i<NUM_TRANS;i++){
 			tx[i]= new DbTransaction();
 			tx[i].b = b;
 			tx[i].id = i;
+			if ( (i%2)==0)
+				tx[i].delete  = true; 
 			tx[i].start();
+			//tx[i].join();
 			//if (i%10 == 0 )Thread.sleep(100);
 			
 		}
@@ -210,7 +238,8 @@ public class BLinkTreeTest extends SimpleDbTestBase {
 		//Thread.sleep(2000);
 		
 		int nT =PrintTree(b);
-		System.out.println("NumPages "+b.numPages() +" numTuples "+nT);
+		System.out.println("NumPages "+b.numPages() +" numTuples "+nT + " ratio " + ((nT+0.0)/b.numPages()));
+		System.out.println();
 		System.out.println("Time "+(time1-time)/1000000);
 		//BTreeChecker.checkRep(b, tid, dirtypages, false);
 	

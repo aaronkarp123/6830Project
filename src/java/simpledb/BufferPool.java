@@ -148,21 +148,26 @@ public class BufferPool {
      * @param tid the ID of the transaction requesting the unlock
      * @param commit a flag indicating whether we should commit or abort
      */
-    public void transactionComplete(TransactionId tid, boolean commit)
+    public synchronized void transactionComplete(TransactionId tid, boolean commit)
         throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
         //System.out.println("TransactionComplete: Tid = " + tid.toString() + ", commit =" + commit);
     	if (BufferPool.DEBUG_ON) System.out.println("Tx "+tid.getId() + (commit ? " commit" : " abort"));
-        for (PageId pid : pageMap.keySet()) {
-            if (pageMap.get(pid).isPageDirty() != null && pageMap.get(pid).isPageDirty().equals(tid)) {
-                if (commit) {
-                    flushPage(pid);
-                } else {
-                    pageMap.put(pid, pageMap.get(pid).getBeforeImage());
-                }
-            }
-        }
+    	try {
+	        for (PageId pid : pageMap.keySet()) {
+	            if (pageMap.get(pid).isPageDirty() != null && pageMap.get(pid).isPageDirty().equals(tid)) {
+	                if (commit) {
+	                    flushPage(pid);
+	                } else {
+	                    pageMap.put(pid, pageMap.get(pid).getBeforeImage());
+	                }
+	            }
+	        }
+    	}catch (NullPointerException e){
+    		e.printStackTrace();
+    		System.exit(0);
+    	}
         lm.releaseAllLocks(tid);
     }
 

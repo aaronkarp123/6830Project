@@ -546,6 +546,7 @@ public class BLinkTreeFile extends BTreeFile {
 		BTreePageId pageId = new BTreePageId(tableid, t.getRecordId().getPageId().pageNumber(), 
 				BTreePageId.LEAF);
 		BTreeLeafPage page = (BTreeLeafPage) getPage(tid, dirtypages, pageId, Permissions.READ_WRITE);
+		if (t.getRecordId() ==null) throw new DbException("Tuple already deleted");
 		page.deleteTuple(t);
 
 		// if the page is below minimum occupancy, get some tuples from its siblings
@@ -689,9 +690,9 @@ class BLinkTreeFileIterator extends AbstractDbFileIterator {
 	 */
 	public void open() throws DbException, TransactionAbortedException {
 		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(
-				tid, BTreeRootPtrPage.getId(f.getId()), Permissions.READ_ONLY);
+				tid, BTreeRootPtrPage.getId(f.getId()), Permissions.NO_LOCK);
 		BTreePageId root = rootPtr.getRootId();
-		curp = f.findLeafPage(tid, root, Permissions.READ_ONLY, null);
+		curp = f.findLeafPage(tid, root, Permissions.NO_LOCK, null);
 		it = curp.iterator();
 	}
 
@@ -713,7 +714,7 @@ class BLinkTreeFileIterator extends AbstractDbFileIterator {
 			}
 			else {
 				curp = (BTreeLeafPage) Database.getBufferPool().getPage(tid,
-						nextp, Permissions.READ_ONLY);
+						nextp, Permissions.NO_LOCK);
 				it = curp.iterator();
 				if (!it.hasNext())
 					it = null;
@@ -774,7 +775,7 @@ class BLinkTreeSearchIterator extends AbstractDbFileIterator {
 	 */
 	public void open() throws DbException, TransactionAbortedException {
 		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(
-				tid, BTreeRootPtrPage.getId(f.getId()), Permissions.READ_ONLY);
+				tid, BTreeRootPtrPage.getId(f.getId()), Permissions.NO_LOCK);
 		BTreePageId root = rootPtr.getRootId();
 		if(ipred.getOp() == Op.EQUALS || ipred.getOp() == Op.GREATER_THAN 
 				|| ipred.getOp() == Op.GREATER_THAN_OR_EQ) {

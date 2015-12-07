@@ -101,7 +101,7 @@ public class Tuple implements Serializable {
         String result = fieldArray[0].toString();
         for (int i = 1; i < fieldArray.length; i ++)
             result += ("\t" + fieldArray[i]);
-        return result + "\n";
+        return result ;
     }
     
     /**
